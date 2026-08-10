@@ -2,6 +2,11 @@ proxmox_endpoint  = "https://192.168.1.10:8006/"
 proxmox_api_token = "terraform@pve!tf=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 proxmox_insecure  = true
 
+# SSH access to the node is required to upload cloud-init snippets.
+# Either load your key into ssh-agent, or point proxmox_ssh_private_key at your key file.
+proxmox_ssh_username    = "root"
+proxmox_ssh_private_key = "/Users/you/.ssh/id_ed25519"
+
 default_node = "pve"
 
 kube_vms = {

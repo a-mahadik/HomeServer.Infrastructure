@@ -39,6 +39,12 @@ variable "datastore_id" {
   default = "local-lvm"
 }
 
+variable "meta_datastore_id" {
+  description = "Datastore that has the 'snippets' content type enabled (e.g. local)"
+  type        = string
+  default     = "local"
+}
+
 variable "bridge" {
   type    = string
   default = "vmbr0"

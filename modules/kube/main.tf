@@ -9,7 +9,7 @@ terraform {
 resource "proxmox_virtual_environment_file" "this_meta" {
   count         = var.resource_count
   content_type  = "snippets"
-  datastore_id  = "local"
+  datastore_id  = var.meta_datastore_id
   node_name     = var.node_name
 
   source_raw {

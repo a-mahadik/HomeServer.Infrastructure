@@ -11,6 +11,7 @@ module "kube" {
   memory         = each.value.memory
   disk_size      = each.value.disk_size
   datastore_id   = each.value.datastore_id
+  meta_datastore_id = each.value.meta_datastore_id
   bridge         = each.value.bridge
   ip_address     = each.value.ip_address
   gateway        = each.value.gateway

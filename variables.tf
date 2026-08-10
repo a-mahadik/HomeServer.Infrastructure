@@ -15,6 +15,19 @@ variable "proxmox_insecure" {
 	default     	= true
 }
 
+variable "proxmox_ssh_username" {
+	description 	= "SSH user used to upload snippets/cloud-init files (usually root)"
+	type        	= string
+	default     	= "root"
+}
+
+variable "proxmox_ssh_private_key" {
+	description 	= "Path to SSH private key used to upload snippets/cloud-init files. Leave empty to use ssh-agent."
+	type        	= string
+	default     	= null
+	sensitive   	= true
+}
+
 variable "default_node" {
 	description 	= "Default Proxmox node name"
 	type        	= string
@@ -34,6 +47,7 @@ variable "kube_vms" {
 			memory         = optional(number, 4096)
 			disk_size      = optional(number, 32)
 			datastore_id   = optional(string, "local-lvm")
+			meta_datastore_id = optional(string, "local")
 			bridge         = optional(string, "vmbr0")
 			ip_address     = optional(string)          # e.g. "10.0.10.50/24" or null for DHCP
 			gateway        = optional(string)
