@@ -1,0 +1,40 @@
+name: Terraform Apply
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Generate terraform.tfvars
+        shell: bash
+        run: |
+          cat > terraform.tfvars <<'EOF'
+          proxmox_endpoint  = "${{ secrets.PROXMOX_ENDPOINT }}"
+          proxmox_api_token = "${{ secrets.PROXMOX_TF_TOKEN }}"
+          EOF
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Validate
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        run: terraform plan -input=false -out=tfplan
+
+      - name: Terraform Apply
+        run: terraform apply -input=false -auto-approve tfplan

@@ -32,7 +32,7 @@ Create a Proxmox API token with permission to create VMs:
 2. Add a token for a user in the format `user@realm!tokenid`.
 3. Grant it the appropriate VM and pool permissions.
 
-Prepare a cloud-init ready VM template (e.g. Ubuntu Cloud Image). Record its VM ID (e.g. `9000`) and use it as `template_vm_id`.
+Prepare a cloud-init ready VM template (e.g. Ubuntu Cloud Image). Record its VM ID (e.g. `900`) and use it as `template_vm_id`.
 
 ### 2. Configure variables
 
@@ -87,7 +87,7 @@ terraform apply
 kube_vms = {
   web01 = {
     name           = "web-01"
-    template_vm_id = 9000
+    template_vm_id = 900
     cores          = 2
     memory         = 4096
     disk_size      = 40
@@ -100,7 +100,7 @@ kube_vms = {
 
   db01 = {
     name           = "db-01"
-    template_vm_id = 9000
+    template_vm_id = 900
     cores          = 4
     memory         = 8192
     disk_size      = 80
