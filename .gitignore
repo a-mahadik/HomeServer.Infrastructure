@@ -10,4 +10,5 @@ override.tf.json
 .terraform.tfstate.lock.info
 terraform.tfvars
 *.tfvars
+!*.auto.tfvars
 !terraform.tfvars.example

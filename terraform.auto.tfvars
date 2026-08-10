@@ -1,0 +1,17 @@
+proxmox_insecure = true
+default_node     = "pve"
+
+kube_vms = {
+  kube-ctrl = {
+    name           = "kube-ctrl"
+    template_vm_id = 900
+    vm_id          = 101
+    cores          = 2
+    memory         = 4096
+    disk_size      = 32
+    ip_address     = "192.168.178.200/24"
+    gateway        = "192.168.178.1"
+    username       = "ubuntu"
+    tags           = ["k8s", "terraform"]
+  }
+}
