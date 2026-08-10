@@ -6,6 +6,22 @@ terraform {
 	}
 }
 
+resource "proxmox_virtual_environment_file" "this_meta" {
+  count         = var.resource_count
+  content_type  = "snippets"
+  datastore_id  = "local"
+  node_name     = var.node_name
+
+  source_raw {
+    data = <<-EOF
+    #cloud-config
+    local-hostname: ${var.hostname}-${var.vm_id}-${format("%02d", count.index + 1)}
+    EOF
+
+    file_name = "meta-${var.hostname}-${var.vm_id}-${format("%02d", count.index + 1)}.yaml"
+  }
+}
+
 resource "proxmox_virtual_environment_vm" "this" {
   name        = var.name
   node_name   = var.node_name
@@ -68,6 +84,8 @@ resource "proxmox_virtual_environment_vm" "this" {
       username = var.username
       keys     = var.ssh_keys
     }
+
+    meta_data_file_id = proxmox_virtual_environment_file.this_meta[count.index].id
   }
 
   operating_system {

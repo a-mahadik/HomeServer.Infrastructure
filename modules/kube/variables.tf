@@ -2,6 +2,10 @@ variable "name" {
   type = string
 }
 
+variable "resource_count" {
+  type = number
+}
+
 variable "node_name" {
   type = string
 }
@@ -63,4 +67,9 @@ variable "ssh_keys" {
 variable "tags" {
   type    = list(string)
   default = ["terraform"]
+}
+
+variable "hostname" {
+  type    = string
+  default = "machine"
 }

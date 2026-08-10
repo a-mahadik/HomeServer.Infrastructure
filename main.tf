@@ -3,6 +3,7 @@ module "kube" {
   for_each = var.kube_vms
 
   name           = each.value.name
+  resource_count = each.value.resource_count
   node_name      = coalesce(each.value.node_name, var.default_node)
   vm_id          = each.value.vm_id
   template_vm_id = each.value.template_vm_id
@@ -16,4 +17,5 @@ module "kube" {
   username       = each.value.username
   ssh_keys       = each.value.ssh_keys
   tags           = each.value.tags
+  hostname       = each.value.hostname
 }

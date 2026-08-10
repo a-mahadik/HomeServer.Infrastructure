@@ -26,6 +26,7 @@ variable "kube_vms" {
 	type = map(
 		object({
 			name           = string
+      resouce_count  = number
 			node_name      = optional(string)
 			vm_id          = optional(number)
 			template_vm_id = number
@@ -39,6 +40,7 @@ variable "kube_vms" {
 			username       = optional(string, "ubuntu")
 			ssh_keys       = optional(list(string), [])
 			tags           = optional(list(string), ["terraform"])
+      hostname       = string
 			})
 	)
 }
