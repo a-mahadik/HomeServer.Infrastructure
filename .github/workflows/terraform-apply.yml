@@ -12,6 +12,8 @@ permissions:
 jobs:
   apply:
     runs-on: self-hosted
+    env:
+      SSH_AUTH_SOCK: /tmp/ssh-agent.sock
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,12 +23,18 @@ jobs:
         with:
           terraform_wrapper: false
 
+      - name: Start ssh-agent
+        run: |
+          ssh-agent -a "$SSH_AUTH_SOCK"
+          ssh-add ~/.ssh/id_ed25519
+
       - name: Generate terraform.tfvars
         shell: bash
         run: |
           cat > terraform.tfvars <<'EOF'
           proxmox_endpoint  = "${{ secrets.PROXMOX_ENDPOINT }}"
           proxmox_api_token = "${{ secrets.PROXMOX_TF_TOKEN }}"
+          proxmox_ssh_username = "terraform"
           EOF
 
       - name: Terraform Init

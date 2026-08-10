@@ -34,6 +34,43 @@ Create a Proxmox API token with permission to create VMs:
 
 Prepare a cloud-init ready VM template (e.g. Ubuntu Cloud Image). Record its VM ID (e.g. `900`) and use it as `template_vm_id`.
 
+#### SSH access (for cloud-init snippet uploads)
+
+The `proxmox_virtual_environment_file` resource uploads cloud-init snippets over SSH from the machine running Terraform to the Proxmox node. Set up a dedicated, least-privilege PAM user on the node:
+
+1. On the Proxmox host, as `root`, create a user with restricted `sudo`:
+   ```sh
+   useradd -m terraform
+   apt install -y sudo
+   visudo -f /etc/sudoers.d/terraform
+   #   terraform ALL=(root) NOPASSWD: /usr/sbin/pvesm
+   #   terraform ALL=(root) NOPASSWD: /usr/sbin/qm
+   #   terraform ALL=(root) NOPASSWD: /usr/bin/tee /var/lib/vz/snippets/[a-zA-Z0-9_][a-zA-Z0-9_.-]*
+   ```
+2. Enable the `snippets` content type on the `local` storage (Datacenter → Storage → local → Edit → Content → **Snippets**), or equivalent:
+   ```sh
+   mkdir -p /var/lib/vz/snippets
+   pvesm set local --content backup,import,iso,vztmpl,snippets
+   ```
+3. Generate an SSH key on the machine that runs Terraform (for this repo: the self-hosted GitHub Actions runner) and authorize it for the `terraform` user:
+   ```sh
+   ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
+   ssh-keyscan -H <proxmox-node-ip> >> ~/.ssh/known_hosts
+   ```
+   Then, as `root` on the host:
+   ```sh
+   mkdir -p /home/terraform/.ssh
+   echo "<pubkey from ~/.ssh/id_ed25519.pub>" >> /home/terraform/.ssh/authorized_keys
+   chown -R terraform:terraform /home/terraform/.ssh
+   chmod 700 /home/terraform/.ssh && chmod 600 /home/terraform/.ssh/authorized_keys
+   ```
+4. Verify password-less `sudo` works from the Terraform machine:
+   ```sh
+   ssh terraform@<proxmox-node-ip> 'sudo pvesm apiinfo'   # prints "APIVER ..." with no prompt
+   ```
+
+The GitHub Actions workflow loads `~/.ssh/id_ed25519` into ssh-agent on the runner and sets `proxmox_ssh_username = "terraform"`.
+
 ### 2. Configure variables
 
 Copy the example and fill in your values:
@@ -59,6 +96,9 @@ terraform apply
 | `proxmox_endpoint` | `string`      | —             | Proxmox API endpoint (e.g. `https://192.168.1.10:8006/`) |
 | `proxmox_api_token` | `string`     | —             | API token in the form `user@realm!tokenid=secret` |
 | `proxmox_insecure` | `bool`        | `true`        | Skip TLS verification (true for self-signed certs) |
+| `proxmox_ssh_agent` | `bool`       | `true`        | Use the SSH agent for snippet/cloud-init uploads  |
+| `proxmox_ssh_username` | `string`   | `"root"`      | SSH user on the node for snippet uploads          |
+| `proxmox_ssh_private_key` | `string` | `null`       | SSH private key (PEM) for snippet uploads; overrides the agent's key |
 | `default_node`     | `string`      | `"pve"`       | Default Proxmox node name                   |
 | `kube_vms`         | `map(object)` | —             | Map of VMs to create (see below)            |
 
@@ -74,6 +114,7 @@ terraform apply
 | `memory`         | `number`         | `4096`               | Memory in MiB                            |
 | `disk_size`      | `number`         | `32`                 | Disk size in GiB                         |
 | `datastore_id`   | `string`         | `"local-lvm"`        | Datastore for the disk                   |
+| `meta_datastore_id` | `string`       | `"local"`            | Datastore for cloud-init snippets (must support `snippets` content) |
 | `bridge`         | `string`         | `"vmbr0"`            | Network bridge                           |
 | `ip_address`     | `string`         | `null`               | Static IP (e.g. `10.0.10.51/24`) or `null` for DHCP |
 | `gateway`        | `string`         | `null`               | Network gateway for static IP            |
