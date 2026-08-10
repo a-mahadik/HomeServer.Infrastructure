@@ -1,3 +1,11 @@
+terraform {
+	required_providers {
+		proxmox = {
+			source = "bpg/proxmox"
+		}
+	}
+}
+
 resource "proxmox_virtual_environment_vm" "this" {
   name        = var.name
   node_name   = var.node_name
