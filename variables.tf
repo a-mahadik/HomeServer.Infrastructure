@@ -15,6 +15,12 @@ variable "proxmox_insecure" {
 	default     	= true
 }
 
+variable "proxmox_ssh_agent" {
+	description 	= "Use the SSH agent for uploading snippets/cloud-init files"
+	type        	= bool
+	default     	= true
+}
+
 variable "proxmox_ssh_username" {
 	description 	= "SSH user used to upload snippets/cloud-init files (usually root)"
 	type        	= string
@@ -22,7 +28,7 @@ variable "proxmox_ssh_username" {
 }
 
 variable "proxmox_ssh_private_key" {
-	description 	= "Path to SSH private key used to upload snippets/cloud-init files. Leave empty to use ssh-agent."
+	description 	= "Contents of the SSH private key used to upload snippets/cloud-init files. Leave empty to use ssh-agent. Agent takes precedence over this key."
 	type        	= string
 	default     	= null
 	sensitive   	= true

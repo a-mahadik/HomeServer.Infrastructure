@@ -3,9 +3,10 @@ proxmox_api_token = "terraform@pve!tf=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 proxmox_insecure  = true
 
 # SSH access to the node is required to upload cloud-init snippets.
-# Either load your key into ssh-agent, or point proxmox_ssh_private_key at your key file.
-proxmox_ssh_username    = "root"
-proxmox_ssh_private_key = "/Users/you/.ssh/id_ed25519"
+# Recommended: load your key into ssh-agent (proxmox_ssh_agent = true).
+# Alternatively set proxmox_ssh_private_key to the key contents, e.g. file("~/.ssh/id_ed25519")
+proxmox_ssh_agent    = true
+proxmox_ssh_username = "root"
 
 default_node = "pve"
 
