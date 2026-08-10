@@ -32,6 +32,16 @@ Create a Proxmox API token with permission to create VMs:
 2. Add a token for a user in the format `user@realm!tokenid`.
 3. Grant it the appropriate VM and pool permissions.
 
+The token's user must also hold `VM.GuestAgent.Audit` (or `VM.GuestAgent.Unrestricted`) on the VMs. Because the module enables the QEMU guest agent, the provider queries agent-reported network interfaces after creating a VM — without this privilege Proxmox returns `HTTP 403 Permission check failed (/vms/<id>, VM.GuestAgent.Audit|VM.GuestAgent.Unrestricted)`. From the CLI:
+
+```sh
+pveum role modify <role> -privs "<existing privs>,VM.GuestAgent.Audit,VM.GuestAgent.Unrestricted"
+pveum aclmod / -user <user@realm> -role <role>
+pveum user permissions <user@realm>
+```
+
+If the token is privilege-separated (`--privsep 1`), grant the privilege to the token's own ACL as well. Grant it on `/` (or the pool covering the VMs) so it applies to newly created VMs too.
+
 Prepare a cloud-init ready VM template (e.g. Ubuntu Cloud Image). Record its VM ID (e.g. `900`) and use it as `template_vm_id`.
 
 #### SSH access (for cloud-init snippet uploads)
@@ -152,6 +162,20 @@ The `modules/kube` module exposes `vm_id`, `name`, and `node_name` for each prov
 - `proxmox_insecure` defaults to `true` because home servers commonly use self-signed certificates. Only set it to `false` with a valid CA.
 - `terraform.tfvars` is gitignored; only `terraform.tfvars.example` is committed.
 - The `lifecycle.ignore_changes` block in the module is preconfigured so you can keep tweaking a VM in the Proxmox GUI without Terraform reverting it.
+- `clone` is included in `lifecycle.ignore_changes` so an imported VM is adopted rather than re-cloned (the `clone` attribute is not returned by the Proxmox API, so without this Terraform would try to clone again over an existing VM).
+
+### State
+
+Terraform state is **local to the self-hosted runner** and is the single source of truth for existing resources. Without it every CI run starts from empty state and Terraform cannot know a VM already exists — this is what causes the `config file already exists` clone errors.
+
+- The workflow stores state at `$HOME/tf-state/homeserver-infra.tfstate` on the runner and points the backend at it via:
+  ```sh
+  terraform init -input=false -reconfigure \
+    -backend-config="path=$HOME/tf-state/homeserver-infra.tfstate"
+  ```
+- The workflow also imports any VM that exists on the Proxmox host but is missing from state (drift reconciliation) before planning.
+- To work on the state from another machine, run `terraform init` with the same `-backend-config` against the same path, or apply via CI only. Never apply twice against different state files for the same hosts.
+- If you delete state, existing VMs are orphaned again — re-run the import (or `terraform import module.kube["<name>"].proxmox_virtual_environment_vm.this[<n>] <node>/<vmid>`) before planning.
 
 ## License
 

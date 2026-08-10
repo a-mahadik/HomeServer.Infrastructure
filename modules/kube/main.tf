@@ -78,6 +78,9 @@ resource "proxmox_virtual_environment_vm" "this" {
 
   lifecycle {
     ignore_changes = [
+      # Imported VMs have no `clone` in state; ignoring it lets Terraform
+      # adopt an existing VM instead of trying to re-clone it.
+      clone,
       # Useful if you change things in the GUI later
       # initialization,
     ]

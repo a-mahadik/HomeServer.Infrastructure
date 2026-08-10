@@ -46,10 +46,23 @@ jobs:
           EOF
 
       - name: Terraform Init
-        run: terraform init -input=false
+        run: |
+          mkdir -p "$HOME/tf-state"
+          terraform init -input=false -reconfigure \
+            -backend-config="path=$HOME/tf-state/homeserver-infra.tfstate"
 
       - name: Terraform Validate
         run: terraform validate -no-color
+
+      - name: Terraform Import (drift reconciliation)
+        run: |
+          ADDR='module.kube["kube-ctrl"].proxmox_virtual_environment_vm.this[0]'
+          if ! terraform state list | grep -qF -- "$ADDR"; then
+            echo "Importing existing VM 1001 into state..."
+            terraform import "$ADDR" 'pve/1001'
+          else
+            echo "Already in state, skipping import."
+          fi
 
       - name: Terraform Plan
         run: terraform plan -input=false -out=tfplan
