@@ -1,6 +1,6 @@
 module "kube" {
   source   = "./modules/kube"
-  for_each = var.vms
+  for_each = var.kube_vms
 
   name           = each.value.name
   node_name      = coalesce(each.value.node_name, var.default_node)
