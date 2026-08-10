@@ -25,6 +25,12 @@ jobs:
 
       - name: Start ssh-agent
         run: |
+          if [ ! -f ~/.ssh/id_ed25519 ]; then
+            mkdir -p ~/.ssh
+            ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
+            echo "Generated a new SSH key. Authorize this public key on the Proxmox host for the terraform user:"
+            echo "  echo \"$(cat ~/.ssh/id_ed25519.pub)\" >> /home/terraform/.ssh/authorized_keys"
+          fi
           ssh-agent -a "$SSH_AUTH_SOCK"
           ssh-add ~/.ssh/id_ed25519
 
