@@ -23,6 +23,7 @@ resource "proxmox_virtual_environment_file" "this_meta" {
 }
 
 resource "proxmox_virtual_environment_vm" "this" {
+  count       = var.resource_count
   name        = var.name
   node_name   = var.node_name
   vm_id       = var.vm_id

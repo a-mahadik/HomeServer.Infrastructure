@@ -26,7 +26,7 @@ variable "kube_vms" {
 	type = map(
 		object({
 			name           = string
-      resouce_count  = number
+      resource_count  = number
 			node_name      = optional(string)
 			vm_id          = optional(number)
 			template_vm_id = number
