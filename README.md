@@ -40,36 +40,36 @@ The `proxmox_virtual_environment_file` resource uploads cloud-init snippets over
 
 1. On the Proxmox host, as `root`, create a user with restricted `sudo`:
    ```sh
-   useradd -m terraform
+   useradd -m gh-user
    apt install -y sudo
-   visudo -f /etc/sudoers.d/terraform
-   #   terraform ALL=(root) NOPASSWD: /usr/sbin/pvesm
-   #   terraform ALL=(root) NOPASSWD: /usr/sbin/qm
-   #   terraform ALL=(root) NOPASSWD: /usr/bin/tee /var/lib/vz/snippets/[a-zA-Z0-9_][a-zA-Z0-9_.-]*
+   visudo -f /etc/sudoers.d/gh-user
+   #   gh-user ALL=(root) NOPASSWD: /usr/sbin/pvesm
+   #   gh-user ALL=(root) NOPASSWD: /usr/sbin/qm
+   #   gh-user ALL=(root) NOPASSWD: /usr/bin/tee /var/lib/vz/snippets/[a-zA-Z0-9_][a-zA-Z0-9_.-]*
    ```
 2. Enable the `snippets` content type on the `local` storage (Datacenter → Storage → local → Edit → Content → **Snippets**), or equivalent:
    ```sh
    mkdir -p /var/lib/vz/snippets
    pvesm set local --content backup,import,iso,vztmpl,snippets
    ```
-3. Generate an SSH key on the machine that runs Terraform (for this repo: the self-hosted GitHub Actions runner) and authorize it for the `terraform` user:
+3. Generate an SSH key on the machine that runs Terraform (for this repo: the self-hosted GitHub Actions runner) and authorize it for the `gh-user` user:
    ```sh
    ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
    ssh-keyscan -H <proxmox-node-ip> >> ~/.ssh/known_hosts
    ```
    Then, as `root` on the host:
    ```sh
-   mkdir -p /home/terraform/.ssh
-   echo "<pubkey from ~/.ssh/id_ed25519.pub>" >> /home/terraform/.ssh/authorized_keys
-   chown -R terraform:terraform /home/terraform/.ssh
-   chmod 700 /home/terraform/.ssh && chmod 600 /home/terraform/.ssh/authorized_keys
+   mkdir -p /home/gh-user/.ssh
+   echo "<pubkey from ~/.ssh/id_ed25519.pub>" >> /home/gh-user/.ssh/authorized_keys
+   chown -R gh-user:gh-user /home/gh-user/.ssh
+   chmod 700 /home/gh-user/.ssh && chmod 600 /home/gh-user/.ssh/authorized_keys
    ```
 4. Verify password-less `sudo` works from the Terraform machine:
    ```sh
-   ssh terraform@<proxmox-node-ip> 'sudo pvesm apiinfo'   # prints "APIVER ..." with no prompt
+   ssh gh-user@<proxmox-node-ip> 'sudo pvesm apiinfo'   # prints "APIVER ..." with no prompt
    ```
 
-The GitHub Actions workflow loads `~/.ssh/id_ed25519` into ssh-agent on the runner and sets `proxmox_ssh_username = "terraform"`.
+The GitHub Actions workflow loads `~/.ssh/id_ed25519` into ssh-agent on the runner and sets `proxmox_ssh_username = "gh-user"`.
 
 ### 2. Configure variables
 

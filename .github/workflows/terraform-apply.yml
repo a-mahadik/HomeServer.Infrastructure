@@ -28,8 +28,8 @@ jobs:
           if [ ! -f ~/.ssh/id_ed25519 ]; then
             mkdir -p ~/.ssh
             ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
-            echo "Generated a new SSH key. Authorize this public key on the Proxmox host for the terraform user:"
-            echo "  echo \"$(cat ~/.ssh/id_ed25519.pub)\" >> /home/terraform/.ssh/authorized_keys"
+            echo "Generated a new SSH key. Authorize this public key on the Proxmox host for the gh-user user:"
+            echo "  echo \"$(cat ~/.ssh/id_ed25519.pub)\" >> /home/gh-user/.ssh/authorized_keys"
           fi
           pkill -f "ssh-agent.*$SSH_AUTH_SOCK" 2>/dev/null || true
           rm -f "$SSH_AUTH_SOCK"
@@ -42,7 +42,7 @@ jobs:
           cat > terraform.tfvars <<'EOF'
           proxmox_endpoint  = "${{ secrets.PROXMOX_ENDPOINT }}"
           proxmox_api_token = "${{ secrets.PROXMOX_TF_TOKEN }}"
-          proxmox_ssh_username = "terraform"
+          proxmox_ssh_username = "gh-user"
           EOF
 
       - name: Terraform Init
