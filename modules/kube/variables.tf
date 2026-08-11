@@ -95,6 +95,11 @@ variable "tags" {
   default = ["terraform"]
 }
 
+variable "import_file_id" {
+  description = "ID of the downloaded image file (from the root module)"
+  type        = string
+}
+
 variable "hostname" {
   type    = string
   default = "machine"

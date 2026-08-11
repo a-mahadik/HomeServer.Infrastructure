@@ -6,16 +6,6 @@ terraform {
   }
 }
 
-# Ubuntu image to create the VM
-resource "proxmox_download_file" "latest_ubuntu_22_jammy_qcow2_img" {
-  content_type = "import"
-  datastore_id = "local"
-  node_name    = var.node_name
-  url          = var.img_download_url
-  # need to rename the file to *.qcow2 to indicate the actual file format for import
-  file_name = "jammy-server-cloudimg-amd64.qcow2"
-}
-
 # Random password  for the user
 resource "random_password" "ubuntu_vm_password" {
   length           = 16
@@ -91,7 +81,7 @@ resource "proxmox_virtual_environment_vm" "ubuntu_vm" {
 
   disk {
     datastore_id = var.datastore_id
-    import_from  = proxmox_download_file.latest_ubuntu_22_jammy_qcow2_img.id
+    import_from  = var.import_file_id
     interface    = var.disk_interface
     size         = var.disk_size
   }

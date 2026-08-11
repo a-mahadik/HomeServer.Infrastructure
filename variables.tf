@@ -40,6 +40,12 @@ variable "default_node" {
   default     = "pve"
 }
 
+variable "img_download_url" {
+  description = "URL of the Ubuntu cloud image to download once and share across VMs"
+  type        = string
+  default     = "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+}
+
 variable "kube_vms" {
   description = "Map of VMs to create"
   type = map(

@@ -1,3 +1,12 @@
+# download image for kube module
+resource "proxmox_download_file" "kube_module_img" {
+  content_type = "import"
+  datastore_id = "local"
+  node_name    = var.default_node
+  url          = var.img_download_url
+  file_name    = "jammy-server-cloudimg-amd64.qcow2"
+}
+
 module "kube" {
   source   = "./modules/kube"
   for_each = var.kube_vms
@@ -5,6 +14,7 @@ module "kube" {
   name              = each.value.name
   description       = each.value.description
   resource_count    = each.value.resource_count
+  import_file_id    = proxmox_download_file.kube_module_img.id
   node_name         = coalesce(each.value.node_name, var.default_node)
   vm_id             = each.value.vm_id
   template_vm_id    = each.value.template_vm_id
