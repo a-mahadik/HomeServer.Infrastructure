@@ -42,7 +42,8 @@ jobs:
           cat > terraform.tfvars <<'EOF'
           proxmox_endpoint  = "${{ secrets.PROXMOX_ENDPOINT }}"
           proxmox_api_token = "${{ secrets.PROXMOX_TF_TOKEN }}"
-          proxmox_ssh_username = "root"
+          proxmox_ssh_username = "${{ secrets.PROXMOX_SSH_USER }}"
+          proxmox_ssh_private_key = "${{ secrets.PROXMOX_SSH_KEY_PATH }}"
           EOF
 
       - name: Terraform Init

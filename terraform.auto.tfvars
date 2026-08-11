@@ -4,7 +4,7 @@ default_node     = "pve"
 kube_vms = {
   kube-ctrl = {
     name           = "kube-ctrl"
-    description	   = "Kubernetes control plane managed by Terraform"
+    description    = "Kubernetes control plane managed by Terraform"
     resource_count = 1
     template_vm_id = 900
     vm_id          = 1001
@@ -15,6 +15,6 @@ kube_vms = {
     gateway        = "192.168.178.1"
     username       = "ubuntu"
     tags           = ["k8s", "terraform"]
-    hostname	   = "machine"
+    hostname       = "machine"
   }
 }

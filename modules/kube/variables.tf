@@ -2,13 +2,13 @@ variable "name" {
   type = string
 }
 
-variable "description" { 
-  type = string
+variable "description" {
+  type    = string
   default = null
 }
 
 variable "timeout" {
-  type = string
+  type    = string
   default = "10m"
 }
 
@@ -17,7 +17,7 @@ variable "resource_count" {
 }
 
 variable "img_download_url" {
-  type = string
+  type    = string
   default = "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
 }
 
@@ -99,3 +99,4 @@ variable "hostname" {
   type    = string
   default = "machine"
 }
+
