@@ -4,6 +4,7 @@ default_node     = "pve"
 kube_vms = {
   kube-ctrl = {
     name           = "kube-ctrl"
+    description	   = "Kubernetes control plane managed by Terraform"
     resource_count = 1
     template_vm_id = 900
     vm_id          = 1001

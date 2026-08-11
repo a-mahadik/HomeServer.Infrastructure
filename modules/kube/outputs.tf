@@ -1,11 +1,13 @@
-output "vm_id" {
-  value = proxmox_virtual_environment_vm.this[*].vm_id
+output "ubuntu_vm_password" {
+  value     = random_password.ubuntu_vm_password.result
+  sensitive = true
 }
 
-output "name" {
-  value = proxmox_virtual_environment_vm.this[*].name
+output "ubuntu_vm_private_key" {
+  value     = tls_private_key.ubuntu_vm_key.private_key_pem
+  sensitive = true
 }
 
-output "node_name" {
-  value = proxmox_virtual_environment_vm.this[*].node_name
+output "ubuntu_vm_public_key" {
+  value = tls_private_key.ubuntu_vm_key.public_key_openssh
 }

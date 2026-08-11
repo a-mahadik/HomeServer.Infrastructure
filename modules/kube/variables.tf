@@ -2,8 +2,23 @@ variable "name" {
   type = string
 }
 
+variable "description" { 
+  type = string
+  default = null
+}
+
+variable "timeout" {
+  type = string
+  default = "10m"
+}
+
 variable "resource_count" {
   type = number
+}
+
+variable "img_download_url" {
+  type = string
+  default = "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
 }
 
 variable "node_name" {
@@ -39,6 +54,11 @@ variable "datastore_id" {
   default = "local-lvm"
 }
 
+variable "disk_interface" {
+  type    = string
+  default = "scsi0"
+}
+
 variable "meta_datastore_id" {
   description = "Datastore that has the 'snippets' content type enabled (e.g. local)"
   type        = string
@@ -52,7 +72,7 @@ variable "bridge" {
 
 variable "ip_address" {
   type    = string
-  default = null
+  default = "dhcp"
 }
 
 variable "gateway" {
