@@ -117,5 +117,4 @@
   set_fact:
     k8s_join_token: "{{ temp_token.stdout }}"
     k8s_ca_cert_hash: "{{ ca_hash.stdout }}"
-  cacheable: yes
 
