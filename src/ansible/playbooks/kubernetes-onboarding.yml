@@ -1,0 +1,6 @@
+---
+- name: Onboard Kubernetes control plane nodes
+  hosts: kube_control_plane
+  become: true
+  roles:
+    - k8s_control_plane

@@ -19,6 +19,7 @@ env:
   # Nodes are disposable Terraform-managed VMs; host keys rotate on recreation.
   ANSIBLE_HOST_KEY_CHECKING: "false"
   ANSIBLE_SSH_ARGS: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+  ANSIBLE_CONFIG: "${{ github.workspace }}/src/ansible/ansible.cfg"
 
 jobs:
   apply:
@@ -156,6 +157,21 @@ jobs:
             attempt=$((attempt + 1))
             sleep 10
           done
+
+      - name: Run Kubernetes onboarding playbook
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VENV="$HOME/.environments/ansible"
+          SCRATCH="$HOME/ansible-runtime/kube"
+          INV="$GITHUB_WORKSPACE/src/ansible/inventory/kube/inventory.yml"
+          PLAYBOOK="$GITHUB_WORKSPACE/src/ansible/playbooks/kubernetes-onboarding.yml"
+
+          "$VENV/bin/ansible-playbook" \
+            -i "$INV" \
+            -e "@$SCRATCH/vars.yml" \
+            "$PLAYBOOK"
 
       - name: Flush temporary files
         if: always()
