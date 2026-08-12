@@ -85,37 +85,9 @@
     path: /etc/kubernetes/admin.conf
   register: kubeadmin_conf
 
-- name: Initialize Kubernetes cluster via kubeadm
-  command: kubeadm init --pod-network-cidr={{ k8s_pod_network_cidr }}
-  when: not kubeadmin_conf.stat.exists
-  register: kubeadm_init_output
-
-- name: Create .kube directory for root user
-  file:
-    path: /root/.kube
-    state: directory
-    mode: '0755'
-  when: not kubeadmin_conf.stat.exists
-
-- name: Copy admin.conf to root user kubeconfig
-  copy:
-    src: /etc/kubernetes/admin.conf
-    dest: /root/.kube/config
-    remote_src: yes
-    mode: '0600'
-  when: not kubeadmin_conf.stat.exists
-
-- name: Generate new join token
-  command: kubeadm token create --ttl 10m
-  register: temp_token
-
-- name: Get CA cert hash
-  shell: openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //'
-  register: ca_hash
-
-- name: Set facts for worker nodes to read
-  set_fact:
-    k8s_join_token: "{{ temp_token.stdout }}"
-    k8s_ca_cert_hash: "{{ ca_hash.stdout }}"
-  cacheable: yes
-
+- name: Join worker node to the cluster
+  command: >
+    kubeadm join {{ hostvars['kube-ctrl']['ansible_default_ipv4']['address'] }}:6443 
+    --token {{ hostvars['kube-ctrl']['k8s_join_token'] }} 
+    --discovery-token-ca-cert-hash sha256:{{ hostvars['kube-ctrl']['k8s_ca_cert_hash'] }}
+  when: not kubelet_conf.stat.exists

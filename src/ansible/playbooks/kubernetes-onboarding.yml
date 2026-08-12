@@ -4,3 +4,9 @@
   become: true
   roles:
     - k8s_control_plane
+
+- name: Onboard Kubernetes worker nodes
+  hosts: kube_worker
+  become: true
+  roles:
+    - k8s_worker_node
