@@ -122,6 +122,11 @@
     group: "{{ ansible_user }}"
     mode: '0600'
 
+- name: Install Calico CNI plugin
+  command: kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.2/manifests/calico.yaml
+  register: calico_install
+  when: not kubeadmin_conf.stat.exists
+
 - name: Generate new join token
   command: kubeadm token create --ttl 10m
   register: temp_token
