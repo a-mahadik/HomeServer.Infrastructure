@@ -80,10 +80,10 @@
     enabled: yes
     state: started
 
-- name: Check if Kubernetes control plane is already initialized
+- name: Check if worker node has already joined the cluster
   stat:
-    path: /etc/kubernetes/admin.conf
-  register: kubeadmin_conf
+    path: /etc/kubernetes/kubelet.conf
+  register: kubelet_conf
 
 - name: Join worker node to the cluster
   command: >
