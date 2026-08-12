@@ -1,0 +1,84 @@
+name: Ansible Apply
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - Terraform Apply
+    types:
+      - completed
+
+concurrency:
+  group: ansible-apply
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    runs-on: self-hosted
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Setup Ansible virtual environment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VENV="$HOME/.environments/ansible"
+          REQ="$GITHUB_WORKSPACE/docs/ansible/requirements.txt"
+          STAMP="$VENV/.requirements.sha256"
+
+          # Create the venv only when it does not already exist (persists across runs/reboots).
+          if [ ! -x "$VENV/bin/ansible" ]; then
+            echo "Creating Ansible venv at '$VENV'"
+            python3 -m venv "$VENV"
+            "$VENV/bin/python" -m pip install --upgrade pip
+          else
+            echo "Reusing existing Ansible venv at '$VENV'"
+          fi
+
+          # Install pinned dependencies only when requirements.txt has changed.
+          NEW_HASH="$(shasum -a 256 "$REQ" | awk '{print $1}')"
+          OLD_HASH="$(cat "$STAMP" 2>/dev/null || true)"
+          if [ "$NEW_HASH" != "$OLD_HASH" ]; then
+            echo "requirements.txt changed; installing pinned dependencies"
+            "$VENV/bin/python" -m pip install -r "$REQ"
+            printf '%s' "$NEW_HASH" > "$STAMP"
+          else
+            echo "requirements.txt unchanged; skipping pip install"
+          fi
+
+      - name: Verify Ansible environment
+        shell: bash
+        run: |
+          VENV="$HOME/.environments/ansible"
+          "$VENV/bin/ansible" --version
+          "$VENV/bin/ansible-playbook" --version | head -n 1
+          "$VENV/bin/python" -c "import ansible; print('ansible import OK')"
+
+#      - name: Apply Kubernetes playbooks
+#        shell: bash
+#        if: hashFiles('src/ansible/playbooks/site.yml') != ''
+#        run: |
+#          "$HOME/.environments/ansible/bin/ansible-playbook" \
+#            -i "$GITHUB_WORKSPACE/src/ansible/inventory/kube/inventory.yml" \
+#            "$GITHUB_WORKSPACE/src/ansible/playbooks/site.yml"
+
+      - name: Write job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Ansible Apply"
+            echo ""
+            echo "- Ansible venv: \`$HOME/.environments/ansible\`"
+            echo "- Requirements: \`docs/ansible/requirements.txt\`"
+            echo "- Checkout ref: \`${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
