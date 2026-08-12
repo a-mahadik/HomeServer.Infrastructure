@@ -1,0 +1,31 @@
+---
+# Provisional Kubernetes inventory.
+# Generated from `terraform.auto.tfvars` -> `kube_vms` (FR-INV-001/003).
+# Hosts, IPs, and SSH users are managed by Terraform; regenerate on every terraform apply (FR-INV-004).
+#
+# Sensitivity (FR-SEC-001 / FR-INV-006):
+#   - No key material, passwords, or key paths are committed in this file.
+#   - `ansible_ssh_private_key_file` is resolved at runtime from `kube_runtime_keys_dir`
+#     (injected via extra-vars / environment / group_vars during CI execution).
+#   - Key files live in the temporary scratch area and are flushed after each run (FR-TMP).
+
+all:
+  children:
+    kube_control_plane:
+      hosts:
+        kube-ctrl:
+          ansible_host: 192.168.178.200
+          ansible_user: ubuntu
+          ansible_ssh_private_key_file: "{{ kube_runtime_keys_dir }}/{{ inventory_hostname }}"
+
+    kube_worker:
+      hosts:
+        kube-worker-0:
+          ansible_host: 192.168.178.201
+          ansible_user: ubuntu
+          ansible_ssh_private_key_file: "{{ kube_runtime_keys_dir }}/{{ inventory_hostname }}"
+
+    kube_all:
+      children:
+        kube_control_plane: {}
+        kube_worker: {}

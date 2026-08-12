@@ -15,6 +15,11 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # Nodes are disposable Terraform-managed VMs; host keys rotate on recreation.
+  ANSIBLE_HOST_KEY_CHECKING: "false"
+  ANSIBLE_SSH_ARGS: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
 jobs:
   apply:
     runs-on: self-hosted
@@ -64,13 +69,100 @@ jobs:
           "$VENV/bin/ansible-playbook" --version | head -n 1
           "$VENV/bin/python" -c "import ansible; print('ansible import OK')"
 
-#      - name: Apply Kubernetes playbooks
-#        shell: bash
-#        if: hashFiles('src/ansible/playbooks/site.yml') != ''
-#        run: |
-#          "$HOME/.environments/ansible/bin/ansible-playbook" \
-#            -i "$GITHUB_WORKSPACE/src/ansible/inventory/kube/inventory.yml" \
-#            "$GITHUB_WORKSPACE/src/ansible/playbooks/site.yml"
+      - name: Prepare runtime credentials from Terraform state
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          STATE="$HOME/tf-state/homeserver-infra.tfstate"
+          SCRATCH="$HOME/ansible-runtime/kube"
+          KEYS_DIR="$SCRATCH/keys"
+          VARS_FILE="$SCRATCH/vars.yml"
+
+          if [ ! -f "$STATE" ]; then
+            echo "Terraform state not found; cannot derive node credentials"
+            exit 1
+          fi
+
+          mkdir -p -m 0700 "$KEYS_DIR"
+
+          # Extract public/private keys from state outputs into the scratch area.
+          # No key content, key paths, or passwords are echoed to the log (FR-SEC-002/003).
+          python3 - "$STATE" "$KEYS_DIR" "$VARS_FILE" <<'PY'
+          import json
+          import os
+          import sys
+
+          state_path, keys_dir, vars_file = sys.argv[1:4]
+
+          with open(state_path) as fh:
+              state = json.load(fh)
+
+          outputs = state.get("outputs", {})
+
+          private_keys = (outputs.get("ubuntu_vm_private_keys") or {}).get("value", {})
+          public_keys = (outputs.get("ubuntu_vm_public_keys") or {}).get("value", {})
+
+          for vm_name, private_key in private_keys.items():
+              path = os.path.join(keys_dir, vm_name)
+              with open(path, "w") as fh:
+                  fh.write(private_key)
+              os.chmod(path, 0o600)
+
+          for vm_name, public_key in public_keys.items():
+              path = os.path.join(keys_dir, vm_name + ".pub")
+              with open(path, "w") as fh:
+                  fh.write(public_key)
+              os.chmod(path, 0o600)
+
+          # Temporary var file consumed by ansible (resolves kube_runtime_keys_dir).
+          with open(vars_file, "w") as fh:
+              fh.write(f"kube_runtime_keys_dir: {keys_dir}\n")
+          os.chmod(vars_file, 0o600)
+
+          print(f"Materialised credentials for {len(private_keys)} host(s)")
+          PY
+
+      - name: Validate inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VENV="$HOME/.environments/ansible"
+          SCRATCH="$HOME/ansible-runtime/kube"
+          INV="$GITHUB_WORKSPACE/src/ansible/inventory/kube/inventory.yml"
+
+          # Resolved key paths are suppressed; only the outcome is reported (FR-SEC-002).
+          "$VENV/bin/ansible-inventory" -i "$INV" -e "@$SCRATCH/vars.yml" --list >/dev/null
+          echo "Inventory validated"
+
+      - name: Ping Kubernetes nodes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VENV="$HOME/.environments/ansible"
+          SCRATCH="$HOME/ansible-runtime/kube"
+          INV="$GITHUB_WORKSPACE/src/ansible/inventory/kube/inventory.yml"
+
+          MAX_ATTEMPTS=3
+          attempt=1
+          until "$VENV/bin/ansible" -i "$INV" all -m ping -e "@$SCRATCH/vars.yml"; do
+            if [ "$attempt" -ge "$MAX_ATTEMPTS" ]; then
+              echo "Ping check failed after $MAX_ATTEMPTS attempt(s)"
+              exit 1
+            fi
+            echo "Ping attempt $attempt failed; retrying"
+            attempt=$((attempt + 1))
+            sleep 10
+          done
+
+      - name: Flush temporary files
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$HOME/ansible-runtime"
+          echo "Flushed temporary runtime files (public/private keys and variable file)"
 
       - name: Write job summary
         if: always()
