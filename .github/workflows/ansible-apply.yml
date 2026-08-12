@@ -26,6 +26,27 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
+      - name: Install python3-venv system packages
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # `python3 -m venv` needs ensurepip to bootstrap pip inside the venv.
+          if python3 -m ensurepip --version >/dev/null 2>&1; then
+            echo "ensurepip is available; no system packages required"
+            exit 0
+          fi
+
+          echo "ensurepip is missing; installing python3-venv packages"
+          PYVER="$(python3 --version 2>/dev/null | awk '{print $2}')"
+          PKGS="python3-venv python3-pip"
+          if [ -n "$PYVER" ]; then
+            MINOR="$(echo "$PYVER" | cut -d. -f1-2)"
+            PKGS="$PKGS python${MINOR}-venv python${MINOR}-pip"
+          fi
+          sudo -n apt-get update -y
+          sudo -n apt-get install -y $PKGS
+
       - name: Setup Ansible virtual environment
         shell: bash
         run: |
