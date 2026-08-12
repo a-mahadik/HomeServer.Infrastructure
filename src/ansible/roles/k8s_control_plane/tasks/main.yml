@@ -23,7 +23,6 @@
   apt:
     name:
       - containerd
-      - cri-tools
     state: present
     update_cache: yes
 
