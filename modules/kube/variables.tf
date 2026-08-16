@@ -70,6 +70,18 @@ variable "bridge" {
   default = "vmbr0"
 }
 
+variable "second_bridge" {
+  description = "Optional secondary bridge for internet access (e.g. vmbr0). Omit for single-NIC."
+  type        = string
+  default     = null
+}
+
+variable "second_ip_address" {
+  description = "IP address for the secondary NIC (e.g. 'dhcp' or '192.168.178.x/24'). Only used when second_bridge is set."
+  type        = string
+  default     = "dhcp"
+}
+
 variable "ip_address" {
   type    = string
   default = "dhcp"

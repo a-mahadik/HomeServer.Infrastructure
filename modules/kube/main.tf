@@ -110,6 +110,13 @@ resource "proxmox_virtual_environment_vm" "ubuntu_vm" {
     bridge = var.bridge
   }
 
+  dynamic "network_device" {
+    for_each = var.second_bridge != null ? [1] : []
+    content {
+      bridge = var.second_bridge
+    }
+  }
+
   operating_system {
     type = "l26"
   }

@@ -10,29 +10,50 @@ proxmox_ssh_username = "root"
 
 default_node = "pve"
 
+# Dedicated Kubernetes bridge and management subnet (see HS-ANS-003).
+# kube_bridge_name defaults to "vmbr1"; set here to override.
+# kube_mgmt_subnet defaults to "10.200.0.0/24"; must not overlap with
+# host (192.168.178.0/24), pod (10.168.178.0/24), or service (10.96.0.0/12) CIDRs.
+# kube_mgmt_gateway defaults to null (isolated bridge with no route to home LAN).
+# second_bridge / second_ip_address: optional secondary NIC for internet access.
+# Each VM gets a second NIC on vmbr0 (home LAN) via DHCP for apt/image pulls.
+
 kube_vms = {
-  web01 = {
-    name           = "web-01"
+  kube-ctrl = {
+    name           = "kube-ctrl"
+    description    = "Kubernetes control plane managed by Terraform"
+    resource_count = 1
     template_vm_id = 900           # your cloud-init template ID
-    cores          = 2
-    memory         = 4096
-    disk_size      = 40
-    ip_address     = "10.0.10.51/24"
-    gateway        = "10.0.10.1"
-    username       = "ubuntu"
-    ssh_keys       = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... your-key"]
-    tags           = ["web", "terraform"]
+    vm_id          = 1001
+    cores          = 3
+    memory         = 5192
+    disk_size      = 32
+    bridge             = "vmbr1"       # dedicated K8s bridge
+    ip_address         = "10.200.0.200/24"
+    gateway            = null          # isolated — no gateway
+    second_bridge      = "vmbr0"       # secondary NIC for internet via home LAN
+    second_ip_address  = "dhcp"
+    username           = "ubuntu"
+    tags               = ["k8s", "terraform"]
+    hostname           = "machine"
   }
 
-  db01 = {
-    name           = "db-01"
-    template_vm_id = 900
-    cores          = 4
-    memory         = 8192
-    disk_size      = 80
-    # No ip_address = DHCP
-    username       = "ubuntu"
-    ssh_keys       = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... your-key"]
-    tags           = ["db", "terraform"]
+  kube-worker-0 = {
+    name               = "kube-worker-0"
+    description        = "Kubernetes worker node 0 managed by Terraform"
+    resource_count     = 1
+    template_vm_id     = 900
+    vm_id              = 1002
+    cores              = 3
+    memory             = 5192
+    disk_size          = 32
+    bridge             = "vmbr1"
+    ip_address         = "10.200.0.201/24"
+    gateway            = null
+    second_bridge      = "vmbr0"
+    second_ip_address  = "dhcp"
+    username           = "ubuntu"
+    tags               = ["k8s", "terraform"]
+    hostname           = "machine"
   }
 }

@@ -46,6 +46,44 @@ variable "img_download_url" {
   default     = "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
 }
 
+variable "kube_bridge_name" {
+  description = "Name of the dedicated Linux bridge on the Proxmox host for Kubernetes nodes"
+  type        = string
+  default     = "vmbr1"
+}
+
+variable "kube_mgmt_subnet" {
+  description = "CIDR for the Kubernetes node management subnet (must not overlap with host, pod, or service CIDRs)"
+  type        = string
+  default     = "10.200.0.0/24"
+
+  validation {
+    condition     = can(cidrhost(var.kube_mgmt_subnet, 0))
+    error_message = "kube_mgmt_subnet must be a valid CIDR notation (e.g. '10.200.0.0/24')."
+  }
+
+  validation {
+    condition     = !can(regex("^192\\.168\\.178\\.", cidrhost(var.kube_mgmt_subnet, 0)))
+    error_message = "kube_mgmt_subnet must not overlap with the host network (192.168.178.0/24)."
+  }
+
+  validation {
+    condition     = !can(regex("^10\\.168\\.178\\.", cidrhost(var.kube_mgmt_subnet, 0)))
+    error_message = "kube_mgmt_subnet must not overlap with the pod network (10.168.178.0/24)."
+  }
+
+  validation {
+    condition     = !contains([for i in range(96, 112) : tostring(i)], split(".", cidrhost(var.kube_mgmt_subnet, 0))[1])
+    error_message = "kube_mgmt_subnet must not overlap with the Kubernetes service CIDR (10.96.0.0/12, covering 10.96.x.x – 10.111.x.x)."
+  }
+}
+
+variable "kube_mgmt_gateway" {
+  description = "Gateway for the Kubernetes management subnet. Set to null for an isolated bridge (no route to home LAN)."
+  type        = string
+  default     = null
+}
+
 variable "kube_vms" {
   description = "Map of VMs to create"
   type = map(
@@ -64,6 +102,8 @@ variable "kube_vms" {
       bridge            = optional(string, "vmbr0")
       ip_address        = optional(string) # e.g. "10.0.10.50/24" or null for DHCP
       gateway           = optional(string)
+      second_bridge     = optional(string) # secondary NIC for internet access (e.g. "vmbr0")
+      second_ip_address = optional(string) # secondary NIC IP (e.g. "dhcp" or "192.168.178.x/24")
       username          = optional(string, "ubuntu")
       ssh_keys          = optional(list(string), [])
       tags              = optional(list(string), ["terraform"])
