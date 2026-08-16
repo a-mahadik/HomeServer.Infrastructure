@@ -177,6 +177,17 @@ Terraform state is **local to the self-hosted runner** and is the single source 
 - To work on the state from another machine, run `terraform init` with the same `-backend-config` against the same path, or apply via CI only. Never apply twice against different state files for the same hosts.
 - If you delete state, existing VMs are orphaned again — re-run the import (or `terraform import module.kube["<name>"].proxmox_virtual_environment_vm.this[<n>] <node>/<vmid>`) before planning.
 
+## Changelog
+
+- Kubernetes version updates require a full `terraform destroy` before reapplying. Terraform does not track in-place Kubernetes version changes on existing VMs, so skipping destroy can leave the cluster running an older version while Terraform believes the update has been applied. Always run:
+
+  ```sh
+  terraform destroy
+  terraform apply
+  ```
+
+  before bumping the Kubernetes version in your configuration.
+
 ## License
 
 [Apache-2.0](./LICENSE)
