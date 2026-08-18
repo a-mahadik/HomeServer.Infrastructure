@@ -2,7 +2,7 @@ terraform {
   required_version = ">= 1.5.0"
 
   # State is stored on the self-hosted runner at $HOME/tf-state/
-  # (see .github/workflows/terraform-apply.yml for the init command).
+  # (see .github/workflows/terraform-apply.yml and terraform-destroy.yml).
   backend "local" {}
 
   required_providers {

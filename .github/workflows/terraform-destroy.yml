@@ -1,0 +1,64 @@
+name: Terraform Destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "destroy" to confirm'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  destroy:
+    runs-on: self-hosted
+    if: inputs.confirm == 'destroy'
+    env:
+      SSH_AUTH_SOCK: /tmp/ssh-agent.sock
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Start ssh-agent
+        run: |
+          if [ ! -f ~/.ssh/id_ed25519 ]; then
+            mkdir -p ~/.ssh
+            ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
+            echo "Generated a new SSH key. Authorize this public key for root on the Proxmox host:"
+            echo "  echo \"$(cat ~/.ssh/id_ed25519.pub)\" >> /root/.ssh/authorized_keys"
+          fi
+          pkill -f "ssh-agent.*$SSH_AUTH_SOCK" 2>/dev/null || true
+          rm -f "$SSH_AUTH_SOCK"
+          ssh-agent -a "$SSH_AUTH_SOCK"
+          ssh-add ~/.ssh/id_ed25519
+
+      - name: Generate terraform.tfvars
+        shell: bash
+        run: |
+          cat > terraform.tfvars <<'EOF'
+          proxmox_endpoint  = "${{ secrets.PROXMOX_ENDPOINT }}"
+          proxmox_api_token = "${{ secrets.PROXMOX_TF_TOKEN }}"
+          proxmox_ssh_username = "${{ secrets.PROXMOX_SSH_USER }}"
+          proxmox_ssh_private_key = "${{ secrets.PROXMOX_SSH_KEY_PATH }}"
+          EOF
+
+      - name: Terraform Init
+        run: |
+          mkdir -p "$HOME/tf-state"
+          terraform init -input=false -reconfigure \
+            -backend-config="path=$HOME/tf-state/homeserver-infra.tfstate"
+
+      - name: Terraform Validate
+        run: terraform validate -no-color
+
+      - name: Terraform Plan (Destroy)
+        run: terraform plan -input=false -destroy -out=tfdestroy
+
+      - name: Terraform Destroy
+        run: terraform apply -input=false -auto-approve tfdestroy
