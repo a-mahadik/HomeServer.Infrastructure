@@ -25,6 +25,16 @@ jobs:
           MINIO_ROOT_PASSWORD: ${{ secrets.MINIO_ROOT_PASSWORD }}
         run: docker compose up -d
 
+      - name: Create MinIO bucket
+        env:
+          MINIO_ROOT_USER: ${{ secrets.MINIO_ROOT_USER }}
+          MINIO_ROOT_PASSWORD: ${{ secrets.MINIO_ROOT_PASSWORD }}
+        run: |
+          curl -sSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc
+          chmod +x /usr/local/bin/mc
+          mc alias set local http://localhost:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+          mc mb --ignore-existing local/tf-state
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -56,7 +66,7 @@ jobs:
       - name: Terraform Init
         run: |
           terraform init -input=false -reconfigure \
-            -backend-config="endpoint=http://localhost:9000" \
+            -backend-config="endpoints.s3=http://localhost:9000" \
             -backend-config="bucket=tf-state" \
             -backend-config="key=homeserver-infra.tfstate" \
             -backend-config="access_key=${{ secrets.MINIO_ROOT_USER }}" \
