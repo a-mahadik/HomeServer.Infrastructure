@@ -1,0 +1,29 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "coordinator": {
+      "description": "Coordinates the full software development lifecycle across 5 phases: Requirements, Design, Development, QA, and Delivery",
+      "mode": "primary"
+    },
+    "requirements-engineer": {
+      "description": "Tracks prompts and maintains project requirements documents",
+      "mode": "subagent"
+    },
+    "planner": {
+      "description": "Analyzes changes and requirements to create implementation plans for the developer agent",
+      "mode": "subagent"
+    },
+    "developer": {
+      "description": "Full access developer agent with unrestricted file operations",
+      "mode": "subagent"
+    },
+    "code-reviewer": {
+      "description": "Reviews code for quality, best practices, and potential issues",
+      "mode": "subagent"
+    },
+    "technical-writer": {
+      "description": "Maintains project documentation within docs directory and README.md",
+      "mode": "subagent"
+    }
+  }
+}

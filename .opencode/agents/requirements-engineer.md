@@ -1,7 +1,7 @@
 ---
 description: Tracks prompts and maintains project requirements documents
 mode: subagent
-model: opencode/fast
+model: opencode/nemotron-3-ultra-free
 temperature: 0.2
 permission:
   read: allow

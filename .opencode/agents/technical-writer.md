@@ -1,7 +1,7 @@
 ---
 description: Maintains project documentation within docs directory and README.md
 mode: subagent
-model: opencode/fast
+model: opencode/nemotron-3-ultra-free
 temperature: 0.3
 permission:
   read: allow

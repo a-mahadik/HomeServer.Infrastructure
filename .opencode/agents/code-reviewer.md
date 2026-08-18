@@ -1,7 +1,7 @@
 ---
 description: Reviews code for quality, best practices, and potential issues
 mode: subagent
-model: opencode/fast
+model: opencode/nemotron-3-ultra-free
 temperature: 0.1
 permission:
   read: allow

@@ -99,6 +99,15 @@ resource "proxmox_virtual_environment_vm" "ubuntu_vm" {
       }
     }
 
+    dynamic "ip_config" {
+      for_each = var.second_bridge != null ? [1] : []
+      content {
+        ipv4 {
+          address = var.second_ip_address
+        }
+      }
+    }
+
     user_account {
       keys     = [trimspace(tls_private_key.ubuntu_vm_key.public_key_openssh)]
       password = random_password.ubuntu_vm_password.result
