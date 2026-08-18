@@ -68,7 +68,7 @@ jobs:
       - name: Terraform Init
         run: |
           terraform init -input=false -reconfigure \
-            -backend-config="endpoints.s3=http://localhost:9000" \
+            -backend-config="endpoint=http://localhost:9000" \
             -backend-config="bucket=tf-state" \
             -backend-config="key=homeserver-infra.tfstate" \
             -backend-config="access_key=${{ secrets.MINIO_ROOT_USER }}" \

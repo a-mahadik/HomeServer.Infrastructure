@@ -47,7 +47,7 @@ The `tf-state` bucket is created automatically by the CI workflows on each run (
 1. Both workflows (`terraform-apply.yml`, `terraform-destroy.yml`) start by checking out the repo.
 2. The **"Ensure MinIO is running"** step runs `docker compose up -d` in `deploy/preaction/`, passing the MinIO credentials from repository secrets.
 3. The **"Create MinIO bucket"** step installs the MinIO client (`mc`), configures an alias, and creates the `tf-state` bucket if it does not already exist.
-4. **Terraform Init** receives `-backend-config` flags that point at `http://localhost:9000` via `endpoints.s3`, the `tf-state` bucket, and the MinIO credentials. Additional flags (`skip_credentials_validation`, `force_path_style`, etc.) are required because MinIO is not AWS S3.
+4. **Terraform Init** receives `-backend-config` flags that point at `http://localhost:9000`, the `tf-state` bucket, and the MinIO credentials. Additional flags (`skip_credentials_validation`, `force_path_style`, etc.) are required because MinIO is not AWS S3.
 5. Terraform reads and writes state directly in the MinIO bucket — no local file backend.
 
 ## Manual Local Usage
@@ -61,7 +61,7 @@ export MINIO_ROOT_PASSWORD=<your-password>
 docker compose -f deploy/preaction/docker-compose.yml up -d
 
 terraform init -reconfigure \
-  -backend-config="endpoints.s3=http://localhost:9000" \
+  -backend-config="endpoint=http://localhost:9000" \
   -backend-config="bucket=tf-state" \
   -backend-config="key=homeserver-infra.tfstate" \
   -backend-config="access_key=$MINIO_ROOT_USER" \
