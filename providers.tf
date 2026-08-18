@@ -1,9 +1,8 @@
 terraform {
   required_version = ">= 1.5.0"
 
-  # State is stored on the self-hosted runner at $HOME/tf-state/
-  # (see .github/workflows/terraform-apply.yml and terraform-destroy.yml).
-  backend "local" {}
+  # State is stored in MinIO on the self-hosted runner (see .github/workflows/).
+  backend "s3" {}
 
   required_providers {
     proxmox = {

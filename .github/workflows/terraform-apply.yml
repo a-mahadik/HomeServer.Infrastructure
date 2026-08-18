@@ -18,6 +18,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Ensure MinIO is running
+        working-directory: deploy/preaction
+        env:
+          MINIO_ROOT_USER: ${{ secrets.MINIO_ROOT_USER }}
+          MINIO_ROOT_PASSWORD: ${{ secrets.MINIO_ROOT_PASSWORD }}
+        run: docker compose up -d
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -48,9 +55,16 @@ jobs:
 
       - name: Terraform Init
         run: |
-          mkdir -p "$HOME/tf-state"
           terraform init -input=false -reconfigure \
-            -backend-config="path=$HOME/tf-state/homeserver-infra.tfstate"
+            -backend-config="endpoint=http://localhost:9000" \
+            -backend-config="bucket=tf-state" \
+            -backend-config="key=homeserver-infra.tfstate" \
+            -backend-config="access_key=${{ secrets.MINIO_ROOT_USER }}" \
+            -backend-config="secret_key=${{ secrets.MINIO_ROOT_PASSWORD }}" \
+            -backend-config="skip_credentials_validation=true" \
+            -backend-config="skip_metadata_api_check=true" \
+            -backend-config="skip_requesting_account_id=true" \
+            -backend-config="force_path_style=true"
 
       - name: Terraform Validate
         run: terraform validate -no-color
