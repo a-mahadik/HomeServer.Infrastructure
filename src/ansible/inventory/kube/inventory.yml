@@ -14,14 +14,14 @@ all:
     kube_control_plane:
       hosts:
         kube-ctrl:
-          ansible_host: 10.200.0.200
+          ansible_host: 192.168.178.200
           ansible_user: ubuntu
           ansible_ssh_private_key_file: "{{ kube_runtime_keys_dir }}/{{ inventory_hostname }}"
 
     kube_worker:
       hosts:
         kube-worker-0:
-          ansible_host: 10.200.0.201
+          ansible_host: 192.168.178.201
           ansible_user: ubuntu
           ansible_ssh_private_key_file: "{{ kube_runtime_keys_dir }}/{{ inventory_hostname }}"
 
