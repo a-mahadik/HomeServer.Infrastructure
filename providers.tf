@@ -2,7 +2,9 @@ terraform {
   required_version = ">= 1.5.0"
 
   # State is stored in MinIO on the self-hosted runner (see .github/workflows/).
-  backend "s3" {}
+  backend "s3" {
+    region    = "eu-central-1"
+  }
 
   required_providers {
     proxmox = {
