@@ -32,6 +32,30 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
+      - name: Ensure MinIO is running
+        working-directory: deploy/preaction
+        env:
+          MINIO_ROOT_USER: ${{ secrets.MINIO_ROOT_USER }}
+          MINIO_ROOT_PASSWORD: ${{ secrets.MINIO_ROOT_PASSWORD }}
+        run: docker compose up -d
+
+      - name: Install MinIO client
+        env:
+          MINIO_ROOT_USER: ${{ secrets.MINIO_ROOT_USER }}
+          MINIO_ROOT_PASSWORD: ${{ secrets.MINIO_ROOT_PASSWORD }}
+        run: |
+          mkdir -p "$HOME/bin"
+          curl -sSL https://dl.min.io/client/mc/release/linux-amd64/mc -o "$HOME/bin/mc"
+          chmod +x "$HOME/bin/mc"
+          export PATH="$HOME/bin:$PATH"
+          mc alias set local http://localhost:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+
+      - name: Download Terraform state from MinIO
+        run: |
+          mkdir -p "$HOME/tf-state"
+          export PATH="$HOME/bin:$PATH"
+          mc cp local/tf-state/homeserver-infra.tfstate "$HOME/tf-state/homeserver-infra.tfstate"
+
       # Assumes: python3.14-venv package installed
       - name: Setup Ansible virtual environment
         shell: bash
@@ -177,8 +201,8 @@ jobs:
         if: always()
         shell: bash
         run: |
-          rm -rf "$HOME/ansible-runtime"
-          echo "Flushed temporary runtime files (public/private keys and variable file)"
+          rm -rf "$HOME/ansible-runtime" "$HOME/tf-state"
+          echo "Flushed temporary runtime files (state, keys, and variable file)"
 
       - name: Write job summary
         if: always()
