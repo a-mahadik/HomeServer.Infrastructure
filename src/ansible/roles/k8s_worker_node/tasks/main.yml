@@ -18,6 +18,7 @@
     - { key: 'net.bridge.bridge-nf-call-iptables', value: '1' }
     - { key: 'net.bridge.bridge-nf-call-ip6tables', value: '1' }
     - { key: 'net.ipv4.ip_forward', value: '1' }
+    - { key: 'net.ipv6.conf.default.forwarding', value: '1' }
 
 - name: Install Containerd and dependencies
   apt:
