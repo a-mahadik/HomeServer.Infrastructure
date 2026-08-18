@@ -32,8 +32,10 @@ jobs:
           MINIO_ROOT_USER: ${{ secrets.MINIO_ROOT_USER }}
           MINIO_ROOT_PASSWORD: ${{ secrets.MINIO_ROOT_PASSWORD }}
         run: |
-          curl -sSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc
-          chmod +x /usr/local/bin/mc
+          mkdir -p "$HOME/bin"
+          curl -sSL https://dl.min.io/client/mc/release/linux-amd64/mc -o "$HOME/bin/mc"
+          chmod +x "$HOME/bin/mc"
+          export PATH="$HOME/bin:$PATH"
           mc alias set local http://localhost:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
           mc mb --ignore-existing local/tf-state
 
