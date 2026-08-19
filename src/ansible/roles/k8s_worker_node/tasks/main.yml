@@ -88,7 +88,7 @@
 
 - name: Join worker node to the cluster
   command: >
-    kubeadm join {{ hostvars['kube-ctrl']['ansible_default_ipv4']['address'] }}:6443 
+    kubeadm join {{ k8s_ctrl_discovery_ipv4 }}:6443 
     --token {{ hostvars['kube-ctrl']['k8s_join_token'] }} 
     --discovery-token-ca-cert-hash sha256:{{ hostvars['kube-ctrl']['k8s_ca_cert_hash'] }}
   when: not kubelet_conf.stat.exists

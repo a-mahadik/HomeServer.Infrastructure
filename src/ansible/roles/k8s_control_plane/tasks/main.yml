@@ -87,7 +87,7 @@
   register: kubeadmin_conf
 
 - name: Initialize Kubernetes cluster via kubeadm
-  command: kubeadm init --pod-network-cidr={{ k8s_pod_network_cidr }} --apiserver-advertise-address={{ ansible_default_ipv4['address'] }}
+  command: kubeadm init --pod-network-cidr={{ k8s_pod_network_cidr }} --apiserver-advertise-address={{ k8s_discovery_ipv4 }}
   when: not kubeadmin_conf.stat.exists
   register: kubeadm_init_output
 

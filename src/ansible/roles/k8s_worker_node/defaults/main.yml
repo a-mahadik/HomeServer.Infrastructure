@@ -3,4 +3,5 @@
 k8s_repo_version: "v1.36"
 k8s_package_version: "1.36.0-1.1"
 k8s_pod_network_cidr: "10.200.0.0/24"
+k8s_ctrl_discovery_ipv4: "10.200.0.200"
 
