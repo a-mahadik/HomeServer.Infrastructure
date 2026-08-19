@@ -86,3 +86,8 @@ jobs:
 
       - name: Terraform Apply
         run: terraform apply -input=false -auto-approve tfplan
+
+      - name: Refresh state to MinIO
+        run: |
+          terraform plan -input=false -refresh-only -out=tfrefresh
+          terraform apply -input=false -auto-approve tfrefresh

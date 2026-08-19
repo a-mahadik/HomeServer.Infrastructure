@@ -148,6 +148,27 @@ jobs:
           print(f"Materialised credentials for {len(private_keys)} host(s)")
           PY
 
+      - name: Debug SSH keys
+        if: always()
+        shell: bash
+        run: |
+          KEYS_DIR="$HOME/ansible-runtime/kube/keys"
+          echo "--- Key files ---"
+          ls -la "$KEYS_DIR" 2>/dev/null || echo "Keys dir not found"
+          echo "--- Key fingerprints ---"
+          for f in "$KEYS_DIR"/*.pub; do
+            [ -f "$f" ] || continue
+            ssh-keygen -lf "$f" 2>/dev/null || true
+          done
+          echo "--- Private key headers ---"
+          for f in "$KEYS_DIR"/*; do
+            [ -f "$f" ] || continue
+            [[ "$f" == *.pub ]] && continue
+            head -1 "$f" 2>/dev/null || true
+          done
+          echo "--- vars.yml ---"
+          cat "$HOME/ansible-runtime/kube/vars.yml" 2>/dev/null || echo "vars.yml not found"
+
       - name: Validate inventory
         shell: bash
         run: |
