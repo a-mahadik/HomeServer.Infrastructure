@@ -1,0 +1,26 @@
+# ./.tmuxinator.yml
+
+name: homeserverinfra
+root: <%== `pwd`.strip %>
+
+windows:
+  - editor:
+      layout: main-vertical
+      panes:
+        - editor: nvim
+      focused_pane: editor
+
+  - terminal:
+      layout: tiled
+      panes:
+        - clear
+
+  - opencode:
+      layout: tiled
+      panes:
+        - opencode
+
+  - kubectl:
+      layout: main-vertical
+      panes:
+        - ssh amey@dev.machine

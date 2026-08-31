@@ -89,6 +89,27 @@ terraform plan
 terraform apply
 ```
 
+## Development Setup
+The development setup is designed around nvim and tmux usage.
+We use the ruby gem called `tmuxinator`. 
+This allows us to securely maintain a specific set of tmux windows and panes in the development environment.
+
+### Installation for `tmuxinator`
+```shell
+gem install tmuxinator
+rbenv rehash
+```
+
+### How to start the project with `tmuxinator`?
+```shell
+tmuxinator start
+```
+
+### How to stop the project with `tmuxinator`?
+```shell
+tmuxinator stop
+```
+
 ## Variables
 
 | Variable           | Type          | Default       | Description                                  |
