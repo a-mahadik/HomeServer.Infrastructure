@@ -75,6 +75,12 @@
     - kubeadm
     - kubectl
 
+- name: Create kubelet systemd drop-in directory
+  file:
+    path: /etc/systemd/system/kubelet.service.d
+    state: directory
+    mode: '0755'
+
 - name: Configure kubelet cgroup driver via systemd drop-in
   template:
     src: kubelet-cgroup.conf.j2
