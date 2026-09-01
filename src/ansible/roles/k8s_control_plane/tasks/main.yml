@@ -33,7 +33,7 @@
     state: directory
     mode: '0755'
 
-- name: Deploy containerd configuration with SystemdCgroup enabled
+- name: Deploy containerd configuration with SystemdCgroup disabled (cgroupfs)
   template:
     src: containerd.toml.j2
     dest: /etc/containerd/config.toml
@@ -75,11 +75,22 @@
     - kubeadm
     - kubectl
 
+- name: Configure kubelet cgroup driver via systemd drop-in
+  template:
+    src: kubelet-cgroup.conf.j2
+    dest: /etc/systemd/system/kubelet.service.d/10-cgroup.conf
+    mode: '0644'
+  notify: Restart kubelet
+
+- name: Flush handlers so containerd and kubelet restart before kubeadm init
+  meta: flush_handlers
+
 - name: Ensure kubelet is enabled and started
   systemd:
     name: kubelet
     enabled: yes
     state: started
+    daemon_reload: true
 
 - name: Check if Kubernetes control plane is already initialized
   stat:
@@ -135,4 +146,124 @@
   set_fact:
     k8s_join_token: "{{ temp_token.stdout }}"
     k8s_ca_cert_hash: "{{ ca_hash.stdout }}"
+
+# ============================================================================
+# Node readiness gate (REQ-008) — must pass before Cilium install
+# Note: this waits for the control plane node to become Ready. Worker nodes
+# join in a separate play, and the Cilium DaemonSet rolls out to them later.
+# ============================================================================
+- name: Wait for control plane node to become Ready
+  command: >
+    kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}:{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}'
+  register: node_status
+  retries: 60
+  delay: 5
+  until: node_status.stdout | regex_search('True') is not none
+  changed_when: false
+
+# ============================================================================
+# Verification gate (REQ-018) — hard fail on driver mismatch
+# ============================================================================
+- name: Assert containerd and kubelet cgroup drivers match (cgroupfs)
+  shell: |
+    set -e
+
+    # --- containerd: prefer crictl info (JSON or key-value), fall back to config template ---
+    CONTAINERD_DRIVER=""
+    if command -v crictl >/dev/null 2>&1; then
+      if command -v jq >/dev/null 2>&1; then
+        CONTAINERD_DRIVER=$(crictl info -o json 2>/dev/null | jq -r '.config.containerd.runtimes.runc.options.SystemdCgroup // empty' 2>/dev/null || true)
+      fi
+      if [ -z "$CONTAINERD_DRIVER" ]; then
+        # fall back to key-value output
+        CONTAINERD_DRIVER=$(crictl info 2>/dev/null | grep -i SystemdCgroup | awk '{print $2}' | tr -d '",' | tail -1)
+      fi
+    fi
+    if [ -z "$CONTAINERD_DRIVER" ]; then
+      # crictl unavailable or returned nothing: fall back to the deployed config template value
+      CONTAINERD_DRIVER=$(grep -i SystemdCgroup /etc/containerd/config.toml 2>/dev/null | awk '{print $3}' | tr -d '",' | tail -1)
+    fi
+
+    # --- kubelet: prefer /var/lib/kubelet/config.yaml, fall back to journal ---
+    KUBELET_DRIVER=""
+    if [ -f /var/lib/kubelet/config.yaml ]; then
+      KUBELET_DRIVER=$(grep -i 'cgroupDriver' /var/lib/kubelet/config.yaml 2>/dev/null | awk '{print $2}' | tr -d '"' | tail -1)
+    fi
+    if [ -z "$KUBELET_DRIVER" ]; then
+      # fall back to kubelet journal (no overly narrow --since window)
+      KUBELET_DRIVER=$(journalctl -u kubelet --no-pager 2>/dev/null | grep -o 'cgroupDriver="[^"]*"' | tail -1 | cut -d'"' -f2)
+    fi
+
+    echo "containerd SystemdCgroup=$CONTAINERD_DRIVER kubelet cgroupDriver=$KUBELET_DRIVER"
+    if [ "$CONTAINERD_DRIVER" != "false" ]; then
+      echo "ERROR: containerd SystemdCgroup is not false" >&2; exit 1
+    fi
+    if [ "$KUBELET_DRIVER" != "cgroupfs" ]; then
+      echo "ERROR: kubelet cgroupDriver is not cgroupfs" >&2; exit 1
+    fi
+  register: driver_check
+  changed_when: false
+  failed_when: driver_check.rc != 0
+
+# ============================================================================
+# Helm installation (REQ-009) — official binary to /usr/local/bin
+# ============================================================================
+- name: Check if Helm is already installed
+  command: helm version --short
+  register: helm_check
+  changed_when: false
+  failed_when: false
+
+- name: Download Helm binary tarball
+  get_url:
+    url: "https://get.helm.sh/helm-{{ helm_version }}-{{ helm_os }}-{{ helm_arch }}.tar.gz"
+    dest: "/tmp/helm-{{ helm_version }}-{{ helm_os }}-{{ helm_arch }}.tar.gz"
+    checksum: "{{ helm_checksum }}"
+  when: helm_check.rc != 0 or (helm_version not in helm_check.stdout)
+
+- name: Extract Helm binary
+  unarchive:
+    src: "/tmp/helm-{{ helm_version }}-{{ helm_os }}-{{ helm_arch }}.tar.gz"
+    dest: /tmp
+    remote_src: yes
+  when: helm_check.rc != 0 or (helm_version not in helm_check.stdout)
+
+- name: Install Helm to /usr/local/bin
+  copy:
+    src: "/tmp/{{ helm_os }}-{{ helm_arch }}/helm"
+    dest: /usr/local/bin/helm
+    remote_src: yes
+    mode: '0755'
+  when: helm_check.rc != 0 or (helm_version not in helm_check.stdout)
+
+# ============================================================================
+# Cilium Helm repo (REQ-010)
+# ============================================================================
+- name: Add Cilium Helm repository
+  command: helm repo add {{ cilium_repo_name }} {{ cilium_repo_url }}
+  register: cilium_repo_add
+  changed_when: "'already exists' not in (cilium_repo_add.stdout + cilium_repo_add.stderr)"
+  failed_when: cilium_repo_add.rc != 0 and 'already exists' not in (cilium_repo_add.stdout + cilium_repo_add.stderr)
+
+- name: Update Helm repositories
+  command: helm repo update {{ cilium_repo_name }}
+  changed_when: false
+
+# ============================================================================
+# Cilium install (REQ-011, REQ-012) — idempotent via helm list check
+# ============================================================================
+- name: Check if Cilium release already exists
+  command: helm list -n {{ cilium_namespace }} -q
+  register: cilium_release_list
+  changed_when: false
+
+- name: Install Cilium via Helm
+  command: >
+    helm install {{ cilium_release_name }} {{ cilium_repo_name }}/cilium
+    --namespace {{ cilium_namespace }}
+    --version {{ cilium_version }}
+    --set image.pullPolicy={{ cilium_image_pull_policy }}
+    --set ipam.mode={{ cilium_ipam_mode }}
+    --set etcd.enabled={{ cilium_etcd_enabled | string | lower }}
+  when: cilium_release_name not in cilium_release_list.stdout_lines
 

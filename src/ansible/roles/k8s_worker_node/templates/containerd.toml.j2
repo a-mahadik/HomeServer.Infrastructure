@@ -14,4 +14,8 @@ version = 3
         [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runc]
           runtime_type = "io.containerd.runc.v2"
           [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runc.options]
-            SystemdCgroup = true
+            # cgroupfs driver (REQ-002). Must match kubelet's --cgroup-driver=cgroupfs.
+            # containerd 2.x key path (io.containerd.cri.v1.runtime). Ubuntu 22.04 runc
+            # (systemd cgroup support) rejects systemd-slice paths when SystemdCgroup=true,
+            # which blocked sandbox creation and left nodes NotReady. See CLUSTER_FIX_DIAGNOSIS.md.
+            SystemdCgroup = false

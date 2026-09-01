@@ -12,3 +12,6 @@ terraform.tfvars
 *.tfvars
 !*.auto.tfvars
 !terraform.tfvars.example
+
+# temporary directory
+.temp/

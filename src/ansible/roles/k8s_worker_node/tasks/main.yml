@@ -33,7 +33,7 @@
     state: directory
     mode: '0755'
 
-- name: Deploy containerd configuration with SystemdCgroup enabled
+- name: Deploy containerd configuration with SystemdCgroup disabled (cgroupfs)
   template:
     src: containerd.toml.j2
     dest: /etc/containerd/config.toml
@@ -57,7 +57,7 @@
     filename: kubernetes
     state: present
 
-- name: Install Kubernetes control plane components
+- name: Install Kubernetes node components
   apt:
     name:
       - "kubelet={{ k8s_package_version }}"
@@ -75,11 +75,22 @@
     - kubeadm
     - kubectl
 
+- name: Configure kubelet cgroup driver via systemd drop-in
+  template:
+    src: kubelet-cgroup.conf.j2
+    dest: /etc/systemd/system/kubelet.service.d/10-cgroup.conf
+    mode: '0644'
+  notify: Restart kubelet
+
+- name: Flush handlers so containerd and kubelet restart before kubelet starts
+  meta: flush_handlers
+
 - name: Ensure kubelet is enabled and started
   systemd:
     name: kubelet
     enabled: yes
     state: started
+    daemon_reload: true
 
 - name: Check if worker node has already joined the cluster
   stat:
