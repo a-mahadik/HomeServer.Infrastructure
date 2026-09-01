@@ -1,0 +1,19 @@
+---
+# --- Cgroup driver (REQ-004) ---
+kubelet_cgroup_driver: "cgroupfs"
+
+# --- Helm (REQ-009) ---
+helm_version: "v3.16.4"
+helm_arch: "amd64"
+helm_os: "linux"
+helm_checksum: "sha256:fc307327959aa38ed8f9f7e66d45492bb022a66c3e5da6063958254b9767d179"  # checksum for pinned helm_version (v3.16.4); update if helm_version changes
+
+# --- Cilium (REQ-010, REQ-011, REQ-012) ---
+cilium_repo_url: "https://helm.cilium.io/"
+cilium_repo_name: "cilium"
+cilium_release_name: "cilium"
+cilium_namespace: "kube-system"
+cilium_version: "1.20.1"          # pinned, matches failing cluster (AMB-004)
+cilium_image_pull_policy: "IfNotPresent"
+cilium_ipam_mode: "kubernetes"
+cilium_etcd_enabled: false

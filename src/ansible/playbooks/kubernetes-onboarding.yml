@@ -10,3 +10,9 @@
   become: true
   roles:
     - k8s_worker_node
+
+- name: Install Kubernetes network plugin (Cilium)
+  hosts: kube_control_plane
+  become: true
+  roles:
+    - k8s_network

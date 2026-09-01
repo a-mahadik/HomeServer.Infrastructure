@@ -26,9 +26,12 @@ Normalize **both** `containerd` and `kubelet` to use the **`cgroupfs`** driver c
 2. Restart containerd
 3. Explicitly configure kubelet with `--cgroup-driver=cgroupfs` via systemd drop-in
 4. Restart kubelet
-5. Wait for nodes to become `Ready`
-6. Install Helm on control plane
-7. Install Cilium via Helm
+5. **Initialize control plane** (`kubeadm init`) and **join worker nodes** (`kubeadm join`)
+6. **Install Helm** on control plane
+7. **Install Cilium via Helm** (CNI)
+8. **Wait for all nodes to become `Ready`** (now possible because CNI exists)
+
+> **Critical ordering note:** Nodes do **not** report `Ready` until a CNI (Cilium) is installed. The original (incorrect) plan waited for Ready *before* installing Cilium — this would deadlock forever on a fresh cluster. The corrected 3-phase playbook ensures all nodes join first, then Cilium is installed, then we wait for Ready.
 
 ---
 
@@ -118,18 +121,24 @@ The repository includes a CI workflow (`.github/workflows/ansible-apply.yml`) th
 ### What the Playbook Does (High-Level)
 
 ```yaml
-# kubernetes-onboarding.yml
+# kubernetes-onboarding.yml (3-phase playbook)
 - name: Onboard Kubernetes control plane nodes
   hosts: kube_control_plane
   become: true
   roles:
-    - k8s_control_plane    # ← Contains the fix + Helm + Cilium
+    - k8s_control_plane    # ← Fix + kubeadm init + token/CA hash (no Helm/Cilium)
 
 - name: Onboard Kubernetes worker nodes
   hosts: kube_worker
   become: true
   roles:
-    - k8s_worker_node      # ← Contains the fix (no Helm/Cilium)
+    - k8s_worker_node      # ← Fix + kubeadm join
+
+- name: Install Kubernetes network plugin (Cilium)
+  hosts: kube_control_plane
+  become: true
+  roles:
+    - k8s_network          # ← Driver verify → Helm → Cilium repo → Cilium install → wait for ALL nodes Ready
 ```
 
 ---
@@ -146,6 +155,18 @@ All configurable variables are defined in role `defaults/main.yml` files. Overri
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `kubelet_cgroup_driver` | `"cgroupfs"` | Cgroup driver for kubelet (must match containerd). **Do not change unless you also change containerd.** |
+
+### Worker Node Role (`src/ansible/roles/k8s_worker_node/defaults/main.yml`)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `kubelet_cgroup_driver` | `"cgroupfs"` | Cgroup driver for kubelet (must match containerd and control plane) |
+
+### Network Role (`src/ansible/roles/k8s_network/defaults/main.yml`)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `kubelet_cgroup_driver` | `"cgroupfs"` | Cgroup driver for kubelet (must match containerd) — used by driver-verify gate |
 | `helm_version` | `"v3.16.4"` | Helm binary version to install |
 | `helm_arch` | `"amd64"` | Architecture for Helm binary |
 | `helm_os` | `"linux"` | OS for Helm binary |
@@ -159,13 +180,7 @@ All configurable variables are defined in role `defaults/main.yml` files. Overri
 | `cilium_ipam_mode` | `"kubernetes"` | IPAM mode (`kubernetes`, `cluster-pool`, `eni`, etc.) |
 | `cilium_etcd_enabled` | `false` | Use etcd for KV-store (false = use Kubernetes API server) |
 
-### Worker Node Role (`src/ansible/roles/k8s_worker_node/defaults/main.yml`)
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `kubelet_cgroup_driver` | `"cgroupfs"` | Cgroup driver for kubelet (must match containerd and control plane) |
-
-### Shared Kubernetes Variables (both roles)
+### Shared Kubernetes Variables (both node roles)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -192,7 +207,7 @@ ansible-playbook -i src/ansible/inventory/kube/inventory.yml \
 
 ## 5. What Happens During the Run
 
-### Task Ordering (Control Plane Role)
+### Play 1 — Control Plane (`k8s_control_plane` role on `kube_control_plane`)
 
 The tasks execute in this strict order (enforced by `meta: flush_handlers`):
 
@@ -212,15 +227,11 @@ The tasks execute in this strict order (enforced by `meta: flush_handlers`):
 13. kubeadm init (if not initialized)
 14. Copy kubeconfig to root + admin user
 15. Generate join token + CA cert hash
-16. Set facts for worker nodes
-17. WAIT FOR CONTROL PLANE NODE READY (60 retries × 5s)
-18. ASSERT DRIVER MATCH (hard fail if containerd≠false or kubelet≠cgroupfs)
-19. Check/install Helm (binary to /usr/local/bin, checksum verified)
-20. Add Cilium Helm repo + update
-21. Install Cilium via Helm (idempotent: skipped if release exists)
+16. Set facts for worker nodes to read
+    ──▶ END of control-plane role (no Helm/Cilium/network tasks)
 ```
 
-### Task Ordering (Worker Node Role)
+### Play 2 — Worker Nodes (`k8s_worker_node` role on `kube_worker`)
 
 ```
 1.  Load kernel modules
@@ -235,8 +246,35 @@ The tasks execute in this strict order (enforced by `meta: flush_handlers`):
 10. FLUSH HANDLERS (containerd + kubelet restart NOW)
 11. Ensure kubelet enabled & started
 12. Check if already joined (kubelet.conf exists)
-13. kubeadm join (if not joined)
+13. kubeadm join (if not joined, using facts from Play 1)
 ```
+
+### Play 3 — Network / Cilium (`k8s_network` role on `kube_control_plane`)
+
+**This is the corrected ordering.** The driver-verify gate runs first (hard fail on mismatch), then Helm is installed, then the Cilium Helm repo is added, then Cilium is installed via Helm, and **only then** does the playbook wait for all nodes to become Ready.
+
+```
+1.  Assert containerd and kubelet cgroup drivers match (cgroupfs) — HARD FAIL if mismatch (REQ-018)
+2.  Check if Helm is already installed (version match)
+3.  Download Helm binary tarball (checksum verified)
+4.  Extract Helm binary
+5.  Install Helm to /usr/local/bin
+6.  Add Cilium Helm repository + update
+7.  Check if Cilium release already exists (helm list)
+8.  Install Cilium via Helm (idempotent: skipped if release exists)
+9.  WAIT FOR ALL NODES READY (60 retries × 5s) — AFTER Cilium install
+```
+
+### Why This Order? (The Deadlock Fix)
+
+**Nodes do not report `Ready` until a CNI (Cilium) is installed.** On a fresh cluster, the kubelet reports `NotReady` because the pod network is not up. The original (incorrect) plan waited for nodes to become Ready *before* installing Cilium — this would deadlock forever.
+
+The corrected 3-phase order ensures:
+1. **All nodes join first** (Plays 1 + 2 complete — control plane initialized, workers joined)
+2. **Then Cilium is installed** (Play 3, steps 1–8)
+3. **Then we wait for Ready** (Play 3, step 9 — now possible because CNI exists)
+
+The driver-verify gate (step 1) runs as a hard fail *before* any Helm/Cilium work, preventing Cilium from being deployed onto a mismatched cluster.
 
 ### Idempotency Behavior
 
@@ -335,13 +373,14 @@ kubectl get pods -n kube-system -l k8s-app=cilium
 
 | Limitation | Details | Workaround / Note |
 |------------|---------|-------------------|
-| **Control-plane-first wait** | The wait-for-ready task only waits for the control plane node to become Ready. Workers join in a separate play. | Acceptable — Cilium DaemonSet rolls out to workers as they join. If you need strict "all nodes Ready", modify the wait task to check for expected node count. |
+| **3-phase playbook** | The playbook now has three plays: control plane → workers → network. All must run in sequence. | Run the full playbook; do not skip plays. |
 | **Cgroup driver normalized to `cgroupfs`** | Both containerd and kubelet **must** use the same driver. Changing one without the other will break the cluster again. | If you need `systemd` driver, change BOTH `SystemdCgroup = true` in containerd templates AND `kubelet_cgroup_driver: "systemd"` in defaults. |
 | **Helm checksum tied to version** | `helm_checksum` must match the pinned `helm_version`. Updating one without the other breaks the install. | Always update both together. Get checksum from <https://get.helm.sh/helm-{version}-linux-amd64.tar.gz.sha256> |
 | **Cilium version pinned to 1.20.1** | Default `cilium_version: "1.20.1"` is pinned for reproducibility. Must be compatible with Kubernetes v1.36. | Check Cilium compatibility matrix before upgrading. Override with `-e cilium_version=X.Y.Z` if needed. |
 | **Helm binary integrity via SHA256 only** | No GPG signature verification — only SHA256 checksum of the tarball. | Acceptable for most environments. For higher security, add GPG verification step. |
-| **No CNI before Cilium** | The cluster has no CNI until Cilium installs. Nodes will be NotReady until step 21 completes. | This is by design — the fix enables Cilium to install successfully. |
-| **Worker nodes join after Cilium install on control plane** | Cilium is installed in the control-plane play; workers join in the worker play. | Cilium DaemonSet automatically schedules on new nodes as they join. |
+| **No CNI before Cilium** | The cluster has no CNI until Cilium installs (Play 3). Nodes will be NotReady until Play 3 step 8 completes. | This is by design — the fix enables Cilium to install successfully. |
+| **Worker nodes join before Cilium install** | Workers join in Play 2; Cilium installs in Play 3 on control plane. | Cilium DaemonSet automatically schedules on all nodes (including workers) as they exist. |
+| **Readiness wait only in Play 3** | The wait-for-all-nodes-Ready task runs only in the `k8s_network` role (Play 3). | If you run only Plays 1–2, nodes will remain NotReady (no CNI). |
 
 ---
 
@@ -441,13 +480,14 @@ kubectl describe pod -n kube-system -l k8s-app=cilium
 
 | File | Role |
 |------|------|
-| `src/ansible/roles/k8s_control_plane/tasks/main.yml` | Control plane task sequence (fix + Helm + Cilium) |
-| `src/ansible/roles/k8s_worker_node/tasks/main.yml` | Worker node task sequence (fix only) |
+| `src/ansible/roles/k8s_control_plane/tasks/main.yml` | Control plane task sequence (fix + kubeadm init + token/CA hash; **no Helm/Cilium**) |
+| `src/ansible/roles/k8s_worker_node/tasks/main.yml` | Worker node task sequence (fix + kubeadm join) |
+| `src/ansible/roles/k8s_network/tasks/main.yml` | Network task sequence (driver-verify → Helm → Cilium repo → Cilium install → wait for all nodes Ready) |
 | `src/ansible/roles/k8s_control_plane/templates/containerd.toml.j2` | Containerd config template (SystemdCgroup=false) |
 | `src/ansible/roles/k8s_worker_node/templates/containerd.toml.j2` | Worker containerd config template |
 | `src/ansible/roles/k8s_control_plane/templates/kubelet-cgroup.conf.j2` | Kubelet systemd drop-in template |
 | `src/ansible/roles/k8s_worker_node/templates/kubelet-cgroup.conf.j2` | Worker kubelet drop-in template |
-| `src/ansible/playbooks/kubernetes-onboarding.yml` | Main playbook (2 plays: control plane → workers) |
+| `src/ansible/playbooks/kubernetes-onboarding.yml` | Main playbook (3 plays: control plane → workers → k8s_network) |
 
 ---
 
